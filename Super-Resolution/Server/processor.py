@@ -1,3 +1,4 @@
+import sre_compile
 from models import face_model as Model
 import torch, os, glob
 from yacs.config import CfgNode
@@ -8,7 +9,7 @@ class Impr():
 
     global net_path, lr_path, sr_path, CFG, num_processed
     CFG = CfgNode.load_cfg(open("./configs/faces.yaml", "rb"))
-    net_path = os.path.join(CFG.DATA.FOLDER,"nets/nets_26627.pth") 
+    net_path = os.path.join(CFG.DATA.FOLDER,"nets/*.pth")
     lr_path=os.path.join(CFG.DATA.FOLDER, "lowr")
     sr_path = os.path.join(CFG.EXP.OUT_DIR, "imgs")
     num_processed = 0
@@ -16,8 +17,12 @@ class Impr():
 
     def compute():
 
-        rank = torch.device('cpu') #for high GPU memory "cuda:" - for quadro p1000 it's ok with about 50 000 pixels
+        if not os.path.exists(lr_path):
+            os.makedirs(lr_path)
+        if not os.path.exists(sr_path):
+            os.makedirs(sr_path)
 
+        rank = torch.device('cpu') #for high GPU memory "cuda"
         net = Model.Face_Model(rank, CFG, 0)
         net.net_load(net_path)
         net.mode_selector("eval")
