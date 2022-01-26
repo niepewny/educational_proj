@@ -78,8 +78,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\Wojtas\source\repos\card recognition\OpenCV\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Wojtas\source\repos\card recognition\OpenCV\lib\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\OpenCV\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\OpenCV\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>

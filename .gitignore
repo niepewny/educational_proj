@@ -455,5 +455,5 @@ compile_commands.json
 
 OpenCV/
 *.zip
-*.pth
 /.vs/
+*.png

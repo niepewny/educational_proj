@@ -1,5 +1,5 @@
 #include <iostream>
-#include <opencv2/imgproc.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 
@@ -138,15 +138,15 @@ void extractContours(Mat& img, vector<vector<Point>> &contour)
 //"translates" specific values to card type. Commented lines show user see every output (if uncommented)
 void specifyCard(int colorId, double circularity, int linesHor, int linesVert, int &type, int &colour)
 {
-    //if (colorId < 2) cout << "red ";
-    //else if (colorId == 2) cout << "yellow ";
-    //else if (colorId == 3 || colorId == 4) cout << "green ";
-    //else cout << "blue ";
+    if (colorId < 2) cout << "red ";
+    else if (colorId == 2) cout << "yellow ";
+    else if (colorId == 3 || colorId == 4) cout << "green ";
+    else cout << "blue ";
 
-    //if (linesHor > 220 && circularity < 0.6) cout << "5" << endl; //
-    //else if (linesVert > 500 && circularity < 0.6) cout << "1" << endl;
-    //else if (circularity > 0.7 && circularity < 0.8) cout << "8" << endl;
-    //else  cout << "spec" << endl;
+    if (linesHor > 220 && circularity < 0.6) cout << "5" << endl; //
+    else if (linesVert > 500 && circularity < 0.6) cout << "1" << endl;
+    else if (circularity > 0.7 && circularity < 0.8) cout << "8" << endl;
+    else  cout << "spec" << endl;
 
     if (colorId < 2) colour = 1;
     else if (colorId == 2) colour = 2;
@@ -257,7 +257,7 @@ int main()
 
         int choice = choose();
 
-        //resize(img, img, Size(), 0.5, 0.5);
+        resize(img, img, Size(), 0.5, 0.5);
         medianBlur(img, img, 15);
 
         vector<vector<Point2f>> corners(4);

@@ -44,7 +44,11 @@ for i in range (amount_of_files):
         plt.xlabel(x_label)
         plt.ylabel(y_label)
 
-        #folder *E:/python/Plots/...* folder wyjsciowy
-        plt.savefig(os.path.join(sript_dir,'plots\P' + str(i+1) +str(i+1)+"."+str(j-4)+".png"))
+        plot_dir = os.path.join(sript_dir,'plots')
+
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
+
+        plt.savefig(plot_dir + '\P' +str(i+1)+"."+str(j-4)+".png")
         
 
