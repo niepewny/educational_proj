@@ -10,4 +10,4 @@ Though there are two different tasks, there was a requirement to include it into
  ### none
 
  # warnings
-- The dilatation is performed in inefficient way. For instance, using the mask would be the better way.
+- The dilatation is performed in an inefficient way. For instance, using the mask would be the better way.
