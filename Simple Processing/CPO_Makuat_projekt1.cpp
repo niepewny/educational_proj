@@ -229,7 +229,7 @@ int main()
 {
     int project = ch_project();
     cv::Mat input = cv::imread(path(), cv::IMREAD_GRAYSCALE);
-    cv::Mat output = input.clone;
+    cv::Mat output = input.clone();
     //podajê kopie, poniewa¿ algorytm przetwarza takze input. Algorytmy wyswietlaja outputy. 
     // Jesli uzytkownik chcialby otrzymac output, a nastepnie przeprowadzac na nim operacje, nalezy podac go jako drugi argument (referencja)    
     if (project == 1)

@@ -15,7 +15,7 @@ class Impr():
     num_processed = 0
 
 
-    def compute():
+    def compute(self):
 
         if not os.path.exists(lr_path):
             os.makedirs(lr_path)
