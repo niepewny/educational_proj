@@ -17,5 +17,5 @@ Due to the fact, that the project has only presentation meaning, there are sampl
  - it should be pasted in the ***server/DATASET/nets*** directory
 
  # warnings
-    -The process of learning was too time-consuming, so it was stopped after 1 epoch (24h of learning). In result, the output is not impressive at all. In the future I may train it better using Google Colab.
-    -The project still contains some bugs. in case of unplanned exiting, it should be oppened, closed and oppened again, as closing invokes destructor, which should remove unwanted files from previous runs
+- The process of learning was too time-consuming, so it was stopped after 1 epoch (24h of learning). In result, the output is not impressive at all. In the future I may train it better using Google Colab.
+- The project still contains some bugs. in case of unplanned exiting, it should be oppened, closed and oppened again, as closing invokes destructor, which should remove unwanted files from previous runs

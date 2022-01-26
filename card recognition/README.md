@@ -1,0 +1,12 @@
+# Card Recognition
+
+The task of this project was to analise type and a colour of 4 cards on 16 given photos. The program returns a sum of the numbers on cards of the colours selected by the user. 
+
+# required files:
+ ### [Photos](https://drive.google.com/file/d/1ctRCqRzW7Ocrc_91GKYjq6kOCXCTE_5h/view?usp=sharing)
+ - it should be pasted in the main project's directory
+
+ # warnings:
+ - Project requires improvement of the security. Providing a photo out of the directory, the script is created for, crushes it.
+ - Console displays unnecessary messages
+ - main requires simplification
