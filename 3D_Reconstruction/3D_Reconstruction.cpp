@@ -144,30 +144,22 @@ int main()
     }
 
 
-    //////LSH [*] //////////////////////
-    //cv::Ptr <FlannBasedMatcher> matcherPtr;
-    //cv::Ptr<cv::flann::IndexParams>indexParams = new cv::flann::LshIndexParams(12, 20, 1); //3ci parametr
-    //matcherPtr = cv::Ptr<cv::FlannBasedMatcher>(new cv::FlannBasedMatcher(indexParams));
-
-    auto matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
-
-    cv::Ptr<cv::cuda::ORB> orbPtr = cv::cuda::ORB::create(500000, 1.05f, 4, 9,
-        0, 2, cv::ORB::HARRIS_SCORE, 9, 1); //31
-    cv::Mat efect;
-    cv::DrawMatchesFlags flags = cv::DrawMatchesFlags::DRAW_OVER_OUTIMG | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS;
+    cv::Ptr<cv::cuda::ORB> orbPtr = cv::cuda::ORB::create(500000, 1.05f, 4, 31,
+        0, 2, cv::ORB::HARRIS_SCORE, 31, 1);
 
     int ROIrows = 100;
     int numOfROIs = GPUimg[0].rows / ROIrows;
     std::vector<std::vector<cv::KeyPoint>> keypoints(numOfImgs);
     std::vector<cv::cuda::GpuMat> descriptors(numOfImgs);
 
-    std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints(numOfImgs, std::vector<std::vector<cv::KeyPoint>>(numOfROIs));
-    std::vector<std::vector<cv::cuda::GpuMat>> ROIdes(ROIrows);
 
     for (int i = 0; i < numOfImgs; i++)
     {
         orbPtr->detectAndCompute(GPUimg[i], cv::cuda::GpuMat(), keypoints[i], descriptors[i]);
     }
+
+    std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints(numOfImgs, std::vector<std::vector<cv::KeyPoint>>(numOfROIs));
+    std::vector<std::vector<cv::cuda::GpuMat>> ROIdes(ROIrows);
 
     for (int i = 0; i < numOfImgs; i++)
     {
@@ -178,7 +170,9 @@ int main()
         }
     }
 
-
+    auto matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
+    cv::Mat efect;
+    cv::DrawMatchesFlags flags = cv::DrawMatchesFlags::DRAW_OVER_OUTIMG | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS;
     for (int i = 0; i < numOfROIs; i++)
     {
         std::vector<std::vector<cv::DMatch>> matches;
