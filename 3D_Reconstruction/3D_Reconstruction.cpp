@@ -184,12 +184,13 @@ int main()
     std::vector<std::vector<cv::KeyPoint>> keypoints(numOfImgs);
     std::vector<cv::Mat> descriptors(numOfImgs);
 
+    //to upgrade it for CUDA in the future
     for (int i = 0; i < numOfImgs; i++)
     {
         std::async(std::launch::async, findPoints, std::ref(orbPtr), std::ref(img[i]), std::ref(keypoints[i]), std::ref(descriptors[i]));
     }
 
-    int maxYdif = 80;
+    int maxYdif = 50;
     int ROIrows = 2 * maxYdif;
     //there exist 2 extra ROIs (index == 0), so that exery point can be stored in two ROIs. In further calculation first index in ROI[index] should be 1, last numOfROIs - 1;
     int numOfROIs = img[0].rows / maxYdif + 1;
@@ -205,14 +206,16 @@ int main()
 
     for (int i = 1; i < numOfROIs - 1; i++)
     {
-        std::vector<std::vector<cv::DMatch>> matches;
+        std::vector<std::vector<std::vector<cv::DMatch>>> matches(numOfROIs-2);
 
         if (ROIpoints[0][i].size() > 0 && ROIpoints[1][i].size() > 0)
         {
             cv::cuda::GpuMat des1(ROIdes[0][i]);
             cv::cuda::GpuMat des2(ROIdes[1][i]);
-            matcherPtr->radiusMatch(des1, des2, matches, 15);
+            matcherPtr->radiusMatch(des1, des2, matches[i-1], 15);
         }
+
+        //////////////drawing//////////////////
         //if (i == 1)
         //{
         //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, efect,
