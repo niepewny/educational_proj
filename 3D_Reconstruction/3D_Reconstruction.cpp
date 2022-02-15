@@ -32,151 +32,134 @@ void skipData(std::ifstream& file, int numOfData, bool line = 0)
     }
 }
 
-struct CameraIntristic
+void Mat2Vec(cv::Mat& mat, std::vector<float>& vec)
 {
-    CameraIntristic(std::string path)
+    for (int i = 0; i < mat.rows; i++)
     {
-        cv::FileStorage file;
-        cv::Mat Dmat;
-
-        file.open(path, cv::FileStorage::READ);
-        file["Camera_Matrix"] >> K;
-        file["Distortion_Coefficients"] >> Dmat;
-        file.release();
-        Mat2Vec(Dmat, D);
-    }
-
-    cv::Mat K;
-    std::vector<float> D;
-
-private:
-
-    void Mat2Vec(cv::Mat &mat, std::vector<float> &D)
-    {
-        for (int i = 0; i < mat.rows; i++)
-        {
-            D.push_back(mat.at<double>(i, 0));
-        }
-    }
-    
-};
-
-struct CameraExtrinsics
-{
-    CameraExtrinsics(std::string path, int numOfImgs)
-    {
-        std::ifstream file;
-        file.open(path);
-
-        if (!file)
-        {
-            std::cout << "Bad extrinsics .txt file" << std::endl;
-            exit(1);
-        }
-
-        skipData(file, 2, 1);
-
-        for (int i = 0; i < numOfImgs; i++)
-        {
-            T.push_back(cv::Mat::zeros(3, 1, CV_32F));
-            R.push_back(cv::Mat::zeros(3, 3, CV_32F));
-
-            skipData(file, 1);
-
-            for (int j = 0; j < 3; j++)
-            {
-                file >> T[i].at<float>(j, 0);
-            }
-            skipData(file, 3);
-
-            for (int j = 0; j < 3; j++)
-            {
-                for (int k = 0; k < 3; k++)
-                {
-                    file >> R[i].at<float>(j, k);
-                }
-            }
-        }
-
-        file.close();
-    }
-    std::vector<cv::Mat> R, T;
-};
-
-void readImages(std::string path, std::vector<cv::Mat>& img, int& numOfImgs)
-{
-    std::vector<std::string> fn;
-    cv::glob(path, fn, false);
-    numOfImgs = fn.size();
-
-    for (int i = 0; i < numOfImgs; i++)
-    {
-        img.push_back(cv::imread(fn[i]));
+        vec.push_back(mat.at<double>(i, 0));
     }
 }
 
-void preprocess(std::vector<cv::Mat>& img, cv::Mat K, std::vector<float> D, int numOfImgs) {
+void cameraIntristic(std::string path, cv::Mat& K, std::vector<float>& D)
+{
+    cv::FileStorage file;
+    cv::Mat Dmat;
 
-    //about 15sec, probably worth to make it async
-    //for (int i = 0; i < numOfImgs; i++)
-    //{
-    //    std::async(std::launch::async, cv::undistort, std::ref(img[i]), std::ref(img[i]), std::ref(K), std::ref(D));
-    //}
-
-    for (int i = 0; i < numOfImgs; i++) //make it parallel
-    {
-        cv::undistort(img[i].clone(), img[i], K, D);
-
-        cv::cuda::GpuMat GPUimg(img[i]);
-        cv::cuda::cvtColor(GPUimg, GPUimg, cv::COLOR_RGB2GRAY);
-
-        cv::Ptr<cv::cuda::Filter> median = cv::cuda::createMedianFilter(GPUimg.type(), 9);
-        median->apply(GPUimg, GPUimg);
-
-        cv::cuda::equalizeHist(GPUimg, GPUimg);
-
-        cv::cuda::GpuMat blur;
-        cv::Ptr<cv::cuda::Filter> gaussian = cv::cuda::createGaussianFilter(GPUimg.type(), GPUimg.type(), cv::Size(17, 17), 15.0);
-        gaussian->apply(GPUimg, blur);
-        cv::cuda::addWeighted(GPUimg, 2.0, blur, -1.0, 0, GPUimg);
-
-        GPUimg.download(img[i]);
-    }
+    file.open(path, cv::FileStorage::READ);
+    file["Camera_Matrix"] >> K;
+    file["Distortion_Coefficients"] >> Dmat;
+    file.release();
+    Mat2Vec(Dmat, D);
 }
 
-void cerateROIs(std::vector<std::vector<cv::KeyPoint>> &keypoints, std::vector<cv::Mat> &descriptors,
-    std::vector<std::vector<std::vector<cv::KeyPoint>>> &ROIpoints, std::vector<std::vector<cv::Mat>> &ROIdes, int maxYdif)
+void cameraExtrinsics(std::string path, std::vector<cv::Mat> &RT)
+{
+    std::ifstream file;
+    file.open(path);
+
+    if (!file)
+    {
+        std::cout << "Bad extrinsics .txt file" << std::endl;
+        exit(1);
+    }
+
+    skipData(file, 2, 1);
+
+    for (int i = 0; i < RT.size(); i++)
+    {
+        RT[i] = cv::Mat::zeros(3, 4, CV_32F);
+
+        skipData(file, 1);
+
+        for (int j = 0; j < 3; j++)
+        {
+            file >> RT[i].at<float>(j, 3);
+        }
+        skipData(file, 3);
+
+        for (int j = 0; j < 3; j++)
+        {
+            for (int k = 0; k < 3; k++)
+            {
+                file >> RT[i].at<float>(j, k);
+            }
+        }
+    }
+
+    file.close();
+}
+
+void preprocess(cv::Mat& img, cv::Mat &K, std::vector<float> &D) 
+{
+    cv::undistort(img.clone(), img, K, D);
+
+    cv::cuda::GpuMat GPUimg(img);
+    cv::cuda::cvtColor(GPUimg, GPUimg, cv::COLOR_RGB2GRAY);
+
+    cv::Ptr<cv::cuda::Filter> median = cv::cuda::createMedianFilter(GPUimg.type(), 9);
+    median->apply(GPUimg, GPUimg);
+
+    cv::cuda::equalizeHist(GPUimg, GPUimg);
+
+    cv::cuda::GpuMat blur;
+    cv::Ptr<cv::cuda::Filter> gaussian = cv::cuda::createGaussianFilter(GPUimg.type(), GPUimg.type(), cv::Size(17, 17), 15.0);
+    gaussian->apply(GPUimg, blur);
+    cv::cuda::addWeighted(GPUimg, 2.0, blur, -1.0, 0, GPUimg);
+
+    GPUimg.download(img);
+}
+
+void cerateROIs(std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors, int maxYdif,
+    std::vector<std::vector<cv::KeyPoint>> &ROIpoints, std::vector<cv::Mat> &ROIdes)
 {
     for (int i = 0; i < keypoints.size(); i++)
     {
-        for (int j = 0; j < keypoints[i].size(); j++)
-        {
-            ROIpoints[i][(int)(keypoints[i][j].pt.y / maxYdif)].push_back(keypoints[i][j]);
-            ROIdes[i][keypoints[i][j].pt.y / maxYdif].push_back(descriptors[i].row(j));
-            ROIpoints[i][(int)(keypoints[i][j].pt.y / maxYdif + 1)].push_back(keypoints[i][j]);
-            ROIdes[i][keypoints[i][j].pt.y / maxYdif + 1].push_back(descriptors[i].row(j));
-        }
+        ROIpoints[(int)(keypoints[i].pt.y / maxYdif)].push_back(keypoints[i]);
+        ROIdes[keypoints[i].pt.y / maxYdif].push_back(descriptors.row(i));
+        ROIpoints[(int)(keypoints[i].pt.y / maxYdif + 1)].push_back(keypoints[i]);
+        ROIdes[keypoints[i].pt.y / maxYdif + 1].push_back(descriptors.row(i));
     }
 }
 
-void findPoints(cv::Ptr<cv::ORB> orbPtr, cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors)
+void findPoints
+    (
+    std::string path, cv::Mat& img,
+    cv::Mat &K, std::vector<float> &D, 
+    cv::Ptr<cv::ORB> orbPtr, std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors, 
+    int maxYdif, std::vector<std::vector<cv::KeyPoint>> ROIpoints, std::vector<cv::Mat> ROIdes
+    )
 {
+    img = cv::imread(path);
+
+    if (img.size == 0)
+    {
+        std::cout << "Image reading error :(" << std::endl;
+        exit(0);
+    }
+
+    preprocess(img, K, D);
     orbPtr->detectAndCompute(img, cv::Mat(), keypoints, descriptors);
+    cerateROIs(keypoints, descriptors, maxYdif, ROIpoints, ROIdes);
 }
+
 
 int main()
 {
 
     std::string directory = "C:/Users/Wojtas/Downloads/data-20211203T205153Z-001/data";
 
-    CameraIntristic cameraIntristic(directory + "/camera_calibration.xml");
+    cv::Mat K;
+    std::vector<float> D;
+    cameraIntristic(directory + "/camera_calibration.xml", K, D);
 
-    std::vector<cv::Mat> img;
-    int numOfImgs;
-    readImages(directory + "/*.JPG", img, numOfImgs);
-    CameraExtrinsics CameraExtrinsics(directory + "/exterior_orientation.txt", numOfImgs);
+    std::vector<std::string> fn;
+    cv::glob(directory + "/*.JPG", fn, false);
+    int numOfImgs = fn.size();
 
-    preprocess(img, cameraIntristic.K, cameraIntristic.D, numOfImgs);
+    std::vector<cv::Mat> RT(numOfImgs);
+    cameraExtrinsics(directory + "/exterior_orientation.txt", RT);
+
+    std::vector<cv::Mat> img(numOfImgs);
 
     cv::Ptr<cv::ORB> orbPtr = cv::ORB::create(50000, 1.05f, 4, 15,
         0, 2, cv::ORB::HARRIS_SCORE, 15, 3);
@@ -184,20 +167,20 @@ int main()
     std::vector<std::vector<cv::KeyPoint>> keypoints(numOfImgs);
     std::vector<cv::Mat> descriptors(numOfImgs);
 
-    //to upgrade it for CUDA in the future
-    for (int i = 0; i < numOfImgs; i++)
-    {
-        std::async(std::launch::async, findPoints, std::ref(orbPtr), std::ref(img[i]), std::ref(keypoints[i]), std::ref(descriptors[i]));
-    }
-
     int maxYdif = 50;
     int ROIrows = 2 * maxYdif;
-    //there exist 2 extra ROIs (index == 0), so that exery point can be stored in two ROIs. In further calculation first index in ROI[index] should be 1, last numOfROIs - 1;
-    int numOfROIs = img[0].rows / maxYdif + 1;
+    int imgRows = 3000; //temporary
+    //there exist 2 extra ROIs (index == 0), so that exery point can be stored in two ROIs. In further calculation (apart from creating), first index in ROI[index] should be 1, last numOfROIs - 1;
+    int numOfROIs = imgRows / maxYdif + 1;
     std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints(numOfImgs, std::vector<std::vector<cv::KeyPoint>>(numOfROIs));
     std::vector<std::vector<cv::Mat>> ROIdes(numOfImgs, std::vector<cv::Mat>(numOfROIs));
 
-    cerateROIs(keypoints, descriptors, ROIpoints, ROIdes, maxYdif);
+    for (int i = 0; i < numOfImgs; i++) 
+    {
+        //doesn't seem to work parallelly
+        std::async(std::launch::async, findPoints, fn[i], std::ref(img[i]), std::ref(K), std::ref(D), std::ref(orbPtr), std::ref(keypoints[i]), std::ref(descriptors[i]), maxYdif, std::ref(ROIpoints[i]), std::ref(ROIdes[i]));
+    }
+
 
     auto matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
     cv::Mat efect;
