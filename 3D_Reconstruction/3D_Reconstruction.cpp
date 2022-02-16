@@ -175,15 +175,18 @@ int main()
     std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints(numOfImgs, std::vector<std::vector<cv::KeyPoint>>(numOfROIs));
     std::vector<std::vector<cv::Mat>> ROIdes(numOfImgs, std::vector<cv::Mat>(numOfROIs));
 
+    std::vector<std::thread> T;
     for (int i = 0; i < numOfImgs; i++) 
     {
-        //doesn't seem to work parallelly
-        std::async(std::launch::async, findPoints, fn[i], std::ref(img[i]), std::ref(K), std::ref(D), std::ref(orbPtr), std::ref(keypoints[i]), std::ref(descriptors[i]), maxYdif, std::ref(ROIpoints[i]), std::ref(ROIdes[i]));
+        T.push_back(std::thread(findPoints, fn[i], std::ref(img[i]), std::ref(K), std::ref(D), std::ref(orbPtr), std::ref(keypoints[i]), std::ref(descriptors[i]), maxYdif, std::ref(ROIpoints[i]), std::ref(ROIdes[i])));
+    }
+    for (int i = 0; i < numOfImgs; i++)
+    {
+        T[i].join();
     }
 
-
     auto matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
-    cv::Mat efect;
+    cv::Mat effect;
     cv::DrawMatchesFlags flags1 = cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS | cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS;
     cv::DrawMatchesFlags flags2 = cv::DrawMatchesFlags::DRAW_OVER_OUTIMG | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS | cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS;
 
@@ -201,13 +204,13 @@ int main()
         //////////////drawing//////////////////
         //if (i == 1)
         //{
-        //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, efect,
+        //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, effect,
         //        cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<std::vector<char> >(), flags1);
         //}
         //else
         //{
 
-        //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, efect,
+        //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, effect,
         //        cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<std::vector<char> >(), flags2);
         //}
     }
