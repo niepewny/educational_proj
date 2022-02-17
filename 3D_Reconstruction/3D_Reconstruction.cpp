@@ -96,15 +96,21 @@ void preprocess(cv::Mat& img, cv::Mat &K, std::vector<float> &D)
     cv::cuda::GpuMat GPUimg(img);
     cv::cuda::cvtColor(GPUimg, GPUimg, cv::COLOR_RGB2GRAY);
 
-    cv::Ptr<cv::cuda::Filter> median = cv::cuda::createMedianFilter(GPUimg.type(), 9);
-    median->apply(GPUimg, GPUimg);
+    ////cv::cuda::equalizeHist(GPUimg, GPUimg);
+    //cv::Ptr<cv::cuda::CLAHE> clahe = cv::cuda::createCLAHE();
+    //clahe->setClipLimit(15);
+    //clahe->apply(GPUimg, GPUimg);
 
-    cv::cuda::equalizeHist(GPUimg, GPUimg);
 
-    cv::cuda::GpuMat blur;
-    cv::Ptr<cv::cuda::Filter> gaussian = cv::cuda::createGaussianFilter(GPUimg.type(), GPUimg.type(), cv::Size(17, 17), 15.0);
-    gaussian->apply(GPUimg, blur);
-    cv::cuda::addWeighted(GPUimg, 2.0, blur, -1.0, 0, GPUimg);
+    //cv::Ptr<cv::cuda::Filter> median = cv::cuda::createMedianFilter(GPUimg.type(), 10);
+    //median->apply(GPUimg, GPUimg);
+
+    //cv::cuda::threshold(GPUimg, GPUimg, 150, 255, cv::THRESH_BINARY);
+
+    //cv::cuda::GpuMat blur;
+    //cv::Ptr<cv::cuda::Filter> gaussian = cv::cuda::createGaussianFilter(GPUimg.type(), GPUimg.type(), cv::Size(17, 17), 15.0);
+    //gaussian->apply(GPUimg, blur);
+    //cv::cuda::addWeighted(GPUimg, 2.0, blur, -1.0, 0, GPUimg);
 
     GPUimg.download(img);
 }
@@ -126,7 +132,7 @@ void findPoints
     std::string path, cv::Mat& img,
     cv::Mat &K, std::vector<float> &D, 
     cv::Ptr<cv::ORB> orbPtr, std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors, 
-    int maxYdif, std::vector<std::vector<cv::KeyPoint>> ROIpoints, std::vector<cv::Mat> ROIdes
+    int maxYdif, std::vector<std::vector<cv::KeyPoint>> &ROIpoints, std::vector<cv::Mat> &ROIdes
     )
 {
     img = cv::imread(path);
@@ -161,16 +167,16 @@ int main()
 
     std::vector<cv::Mat> img(numOfImgs);
 
-    cv::Ptr<cv::ORB> orbPtr = cv::ORB::create(50000, 1.05f, 4, 15,
-        0, 2, cv::ORB::HARRIS_SCORE, 15, 3);
+    cv::Ptr<cv::ORB> orbPtr = cv::ORB::create(1000000, 1.05f, 2, 20,
+        0, 2, cv::ORB::HARRIS_SCORE, 20, 1);
 
     std::vector<std::vector<cv::KeyPoint>> keypoints(numOfImgs);
     std::vector<cv::Mat> descriptors(numOfImgs);
 
-    int maxYdif = 50;
+    int maxYdif = 60;
     int ROIrows = 2 * maxYdif;
-    int imgRows = 3000; //temporary
-    //there exist 2 extra ROIs (index == 0), so that exery point can be stored in two ROIs. In further calculation (apart from creating), first index in ROI[index] should be 1, last numOfROIs - 1;
+    int imgRows = 3000; //temporary. To take from .xml
+    //there exist 2 extra ROIs, so that exery point can be stored in two ROIs. In further calculation (apart from creating), first index in ROI[index] should be 1, last numOfROIs - 1;
     int numOfROIs = imgRows / maxYdif + 1;
     std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints(numOfImgs, std::vector<std::vector<cv::KeyPoint>>(numOfROIs));
     std::vector<std::vector<cv::Mat>> ROIdes(numOfImgs, std::vector<cv::Mat>(numOfROIs));
@@ -184,35 +190,53 @@ int main()
     {
         T[i].join();
     }
+    cv::Ptr< cv::cuda::DescriptorMatcher> matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
 
-    auto matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
-    cv::Mat effect;
-    cv::DrawMatchesFlags flags1 = cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS | cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS;
-    cv::DrawMatchesFlags flags2 = cv::DrawMatchesFlags::DRAW_OVER_OUTIMG | cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS | cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS;
+    std::vector<cv::DMatch> semiFilterredMatches;
+    std::vector < std::vector<cv::KeyPoint>> matchedPoints(2);
 
-    for (int i = 1; i < numOfROIs - 1; i++)
+
+    for (int i = 1; i < numOfROIs-1; i++)
     {
-        std::vector<std::vector<std::vector<cv::DMatch>>> matches(numOfROIs-2);
+        std::vector<std::vector<cv::DMatch>> matches;
 
         if (ROIpoints[0][i].size() > 0 && ROIpoints[1][i].size() > 0)
         {
-            cv::cuda::GpuMat des1(ROIdes[0][i]);
-            cv::cuda::GpuMat des2(ROIdes[1][i]);
-            matcherPtr->radiusMatch(des1, des2, matches[i-1], 15);
+            cv::cuda::GpuMat des1(ROIdes[1][i]);
+            cv::cuda::GpuMat des2(ROIdes[2][i]);
+            
+            //mask would be too memory-consuming
+            matcherPtr->knnMatch(des1, des2, matches, 2);
+            for (int j = 0; j < matches.size(); j++)
+            {
+                if (matches[j][0].distance < 0.90 * matches[j][1].distance)
+                {
+                    matches[j][0].imgIdx = i;
+                    semiFilterredMatches.push_back(matches[j][0]);
+                }
+            }
         }
+    }
+    std::sort(semiFilterredMatches.begin(), semiFilterredMatches.end(), [semiFilterredMatches](cv::DMatch match1, cv::DMatch match2)
+        {
+            return(match1.distance < match2.distance);
+        });
+    ///
+    cv::Mat A = img[1];
+    cv::Mat B = img[2];
+    std::vector<cv::Scalar>color{ cv::Scalar(0, 0, 255), cv::Scalar(0, 255, 0),  cv::Scalar(255, 0, 0), cv::Scalar(0, 255, 255) };
+    for (int j = 0; j < 4; j++)
+    {
+        for (int i = semiFilterredMatches.size() * 0.05 * j; i < semiFilterredMatches.size() * 0.05 * (j + 1); i++)
+        {
+            matchedPoints[0].push_back(ROIpoints[1][semiFilterredMatches[i].imgIdx][semiFilterredMatches[i].queryIdx]);
+            matchedPoints[1].push_back(ROIpoints[2][semiFilterredMatches[i].imgIdx][semiFilterredMatches[i].trainIdx]);
+        }
+        cv::drawKeypoints(A, matchedPoints[0], A, color[j]);
+        cv::drawKeypoints(B, matchedPoints[1], B, color[j]);
 
-        //////////////drawing//////////////////
-        //if (i == 1)
-        //{
-        //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, effect,
-        //        cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<std::vector<char> >(), flags1);
-        //}
-        //else
-        //{
-
-        //    cv::drawMatches(img[0], ROIpoints[0][i], img[1], ROIpoints[1][i], matches, effect,
-        //        cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<std::vector<char> >(), flags2);
-        //}
+        matchedPoints[0].clear();
+        matchedPoints[1].clear();
     }
 
     return 0;
