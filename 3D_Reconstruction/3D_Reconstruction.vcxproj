@@ -79,7 +79,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>D:\OpenCV\CV2\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\OpenCV\CV2\lib\Debug;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\OpenCV\CV3\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
