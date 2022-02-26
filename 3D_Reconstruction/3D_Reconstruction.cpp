@@ -23,28 +23,24 @@ cv::Mat skew(cv::Mat V)
     return Vx;
 }
 
-void crFundamental(std::vector<cv::Mat> RT, cv::Mat Korg, std::vector<cv::Mat> &F)
+void crFundamental(cv::Mat RTl, cv::Mat RTr, cv::Mat Korg, cv::Mat &F)
 {
     cv::Mat relativeRT, R, T, Tx, K;
     cv::Mat hRow = (cv::Mat_<float>(1, 4) << 0, 0, 0, 1);
-    std::vector<cv::Mat> hRT(RT.size());
+    cv::Mat hRTl, hRTr;
     
-    for (int i = 0; i < RT.size(); i++)
-    {
-        vconcat(RT[i], hRow, hRT[i]);
-    }
+    vconcat(RTl, hRow, hRTl);
+    vconcat(RTr, hRow, hRTr);
 
     K = Korg.clone();
     K = K.inv();
 
-    for (int i = 0; i < RT.size() - 1; i++)
-    {
-        relativeRT = hRT[i + 1] * hRT[i].inv();
-        R = relativeRT(cv::Rect(0, 0, 3, 3));
-        T = relativeRT.col(3);
-        Tx = skew<float>(T);
-        F.push_back(K.t() * Tx * R * K);
-    }
+    relativeRT = hRTr * hRTl.inv();
+    R = relativeRT(cv::Rect(0, 0, 3, 3));
+    T = relativeRT.col(3);
+    Tx = skew<float>(T);
+    F.push_back(K.t() * Tx * R * K);
+
 }
 
 void skipData(std::ifstream& file, int numOfData, bool line = 0)
@@ -171,14 +167,61 @@ void cerateROIs(std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors, int 
     }
 }
 
-void findPoints
-    (
-    std::string path, cv::Mat& img,
-    cv::Mat &K, std::vector<float> &D,
-    cv::Ptr<cv::ORB> detector, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors,
-    int maxYdif, std::vector<std::vector<cv::KeyPoint>> &ROIpoints, std::vector<cv::Mat> &ROIdes
-    )
+void match(std::vector<std::vector<cv::KeyPoint>> &ROIpointsL, std::vector<cv::Mat> &ROIdesL, std::vector<std::vector<cv::KeyPoint>>& ROIpointsP, std::vector<cv::Mat>& ROIdesP, std::vector < std::vector < cv::Point_<float>>> &matchedPoints)
 {
+    cv::Ptr< cv::cuda::DescriptorMatcher> matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
+    std::vector<std::vector<cv::DMatch>> matches;
+    cv::cuda::GpuMat des1;
+    cv::cuda::GpuMat des2;
+
+    for (int roiId = 1; roiId < ROIpointsL.size() - 1; roiId++)
+    {
+        if (ROIpointsL[roiId].size() > 1 && ROIpointsP[roiId].size() > 1)
+        {
+            des1.upload(ROIdesL[roiId]);
+            des2.upload(ROIdesP[roiId]);
+            matcherPtr->knnMatch(des1, des2, matches, 2);
+
+            for (int matchId = 0; matchId < matches.size(); matchId++)
+            {
+                if ((matches[matchId][0].distance < matches[matchId][1].distance * 0.8 && matches[matchId][0].distance < 4))
+                {
+                    //in case point needed further filtering
+                    //matches[j][0].imgIdx = i;
+                    //semiFilterredMatches.push_back(matches[j][0]);
+                    matchedPoints[0].push_back(ROIpointsL[roiId][matches[matchId][0].queryIdx].pt);
+                    matchedPoints[1].push_back(ROIpointsP[roiId][matches[matchId][0].trainIdx].pt);
+                }
+            }
+        }
+    }
+}
+
+void determine3d(std::vector <std::vector < cv::Point_<float>>> matchedPoints, std::vector<cv::Mat>projMatr, cv::Mat points3d)
+{
+    cv::Mat hPoints(4, matchedPoints[0].size(), CV_32FC2);
+
+    cv::triangulatePoints(projMatr[0], projMatr[1], matchedPoints[0], matchedPoints[1], hPoints);
+
+    std::vector<cv::Mat>converter;
+    hPoints = hPoints.t();
+    mat2vec(hPoints, converter);
+    cv::merge(converter, hPoints);
+
+    cv::convertPointsFromHomogeneous(hPoints, points3d);
+}
+
+void findPoints
+(
+    std::string path,
+    cv::Mat K, std::vector<float>& D,
+    int maxYdif, std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors
+)
+{
+    cv::Ptr<cv::ORB> ORB = cv::ORB::create(1000000, 1.1f, 50, 5, //poszukaæ, czy lepiej 1 wspólny, czy 1/thread
+        0, 2, cv::ORB::HARRIS_SCORE, 5, 15);
+    cv::Mat img;
+
     img = cv::imread(path);
 
     if (img.size == 0)
@@ -188,64 +231,39 @@ void findPoints
     }
 
     preprocess(img, K, D);
-    detector->detect(img, keypoints);
+    ORB->detect(img, keypoints);
 
     for (int i = 0; i < keypoints.size(); i++)
     {
         keypoints[i].angle = 0;
     }
 
-    detector->compute(img, keypoints, descriptors);
+    ORB->compute(img, keypoints, descriptors);
 
-    cerateROIs(keypoints, descriptors, maxYdif, ROIpoints, ROIdes);
 }
 
-void match(std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints, std::vector<std::vector<cv::Mat>> ROIdes, std::vector <std::vector < cv::Point_<float>>> &matchedPoints)
+void reconstructPoints(std::vector<cv::KeyPoint> &keypointsL, cv::Mat &descriptorsL, std::vector<cv::KeyPoint> & keypointsR, cv::Mat & descriptorsR, cv::Mat K, cv::Mat RTl, cv::Mat RTr, int imgRows)
 {
-    cv::Ptr< cv::cuda::DescriptorMatcher> matcherPtr = cv::cuda::DescriptorMatcher::createBFMatcher(cv::NORM_HAMMING);
-    std::vector<std::vector<cv::DMatch>> matches;
-    cv::cuda::GpuMat des1;
-    cv::cuda::GpuMat des2;
+    std::vector < std::vector < cv::Point_<float>>> matchedPoints(2);
+    cv::Mat F, points3d;
+    std::vector<cv::Mat> projMatr{ K * RTl, K * RTr };
 
-    for (int imgId = 0; imgId < ROIpoints.size()-1; imgId++)
-    {
-        for (int roiId = 1; roiId < ROIpoints[imgId].size() - 1; roiId++)
-        {
-            if (ROIpoints[imgId][roiId].size() > 1 && ROIpoints[imgId][roiId].size() > 1)
-            {
-                des1.upload(ROIdes[imgId][roiId]);
-                des2.upload(ROIdes[imgId][roiId]);
-                matcherPtr->knnMatch(des1, des2, matches, 2);
+    int maxYdif = 60;//calculate or take from the user in the future
+    int ROIrows = 2 * maxYdif;
+    //there exist 2 extra ROIs, so that exery point can be stored in two ROIs
+    int numOfROIs = imgRows / maxYdif + 1;
+    std::vector<std::vector<cv::KeyPoint>> ROIpointsL(numOfROIs);
+    std::vector<cv::Mat> ROIdesL(numOfROIs);
+    std::vector<std::vector<cv::KeyPoint>> ROIpointsR(numOfROIs);
+    std::vector<cv::Mat> ROIdesR(numOfROIs);
 
-                for (int matchId = 0; matchId < matches.size(); matchId++)
-                {
-                    if ((matches[matchId][0].distance < matches[matchId][1].distance * 0.8 && matches[matchId][0].distance < 4))
-                    {
-                        //in case point needed further filtering
-                        //matches[j][0].imgIdx = i;
-                        //semiFilterredMatches.push_back(matches[j][0]);
-                        matchedPoints[imgId].push_back(ROIpoints[imgId][roiId][matches[matchId][0].queryIdx].pt);
-                        matchedPoints[imgId].push_back(ROIpoints[imgId][roiId][matches[matchId][0].trainIdx].pt);
-                    }
-                }
-            }
-        }
-    }
-}
+    cerateROIs(keypointsL, descriptorsL, maxYdif, ROIpointsL, ROIdesL);
+    cerateROIs(keypointsR, descriptorsR, maxYdif, ROIpointsR, ROIdesR);
 
-void determine3d(std::vector <std::vector < cv::Point_<float>>> matchedPoints, std::vector <cv::Mat> F, std::vector<cv::Mat>projMatr, cv::Mat points3d)
-{
-    cv::Mat hPoints(4, matchedPoints[0].size(), CV_32FC2);
-
-    cv::correctMatches(F[2], matchedPoints[0], matchedPoints[1], matchedPoints[0], matchedPoints[1]);
-    cv::triangulatePoints(projMatr[2], projMatr[3], matchedPoints[0], matchedPoints[1], hPoints);
-
-    std::vector<cv::Mat>converter;
-    hPoints = hPoints.t();
-    mat2vec(hPoints, converter);
-    cv::merge(converter, hPoints);
-
-    cv::convertPointsFromHomogeneous(hPoints, points3d);
+    match(ROIpointsL, ROIdesL, ROIpointsR, ROIdesR, matchedPoints);
+    crFundamental(RTl, RTr, K, F);
+    cv::correctMatches(F, matchedPoints[0], matchedPoints[1], matchedPoints[0], matchedPoints[1]);
+    determine3d(matchedPoints, projMatr, points3d);
 }
 
 int main()
@@ -263,48 +281,33 @@ int main()
     std::vector<cv::Mat> RT(numOfImgs);
     cameraExtrinsics(directory + "/exterior_orientation.txt", RT);
 
-    std::vector<cv::Mat> img(numOfImgs);
+    std::vector<std::vector<cv::KeyPoint>> keypoints;
+    std::vector <cv::Mat> descriptors;
 
-    cv::Ptr<cv::ORB> detector = cv::ORB::create(1000000, 1.1f, 50, 5,
-        0, 2, cv::ORB::HARRIS_SCORE, 5, 15);
-
-    std::vector<std::vector<cv::KeyPoint>> keypoints(numOfImgs);
-    std::vector<cv::Mat> descriptors(numOfImgs);
-
-    int maxYdif = 60;//calculate or take from the user in the future
-    int ROIrows = 2 * maxYdif;
-    //there exist 2 extra ROIs, so that exery point can be stored in two ROIs. In further calculation (apart from creating), first index in ROI[index] should be 1, last numOfROIs - 1;
-    int numOfROIs = imgRows / maxYdif + 1;
-    std::vector<std::vector<std::vector<cv::KeyPoint>>> ROIpoints(numOfImgs, std::vector<std::vector<cv::KeyPoint>>(numOfROIs));
-    std::vector<std::vector<cv::Mat>> ROIdes(numOfImgs, std::vector<cv::Mat>(numOfROIs));
-
-    std::vector<std::thread> T;
+    std::vector<std::thread> Thr;
     for (int i = 0; i < numOfImgs; i++)
     {
-        T.push_back(std::thread(findPoints, fn[i], std::ref(img[i]), std::ref(K), std::ref(D), std::ref(detector),
-            std::ref(keypoints[i]), std::ref(descriptors[i]), maxYdif, std::ref(ROIpoints[i]), std::ref(ROIdes[i])));
+        Thr.push_back(std::thread(findPoints, fn[i], std::ref(K), std::ref(D),
+            std::ref(keypoints[i]), std::ref(descriptors[i])));
     }
-    for (int i = 0; i < numOfImgs; i++)
+    for (int i = 0; i < Thr.size(); i++)
     {
-        T[i].join();
+        Thr[i].join();
     }
+    Thr.clear();
 
-    std::vector<cv::Mat> projMatr;
-    for (int i = 0; i < numOfImgs; i++)
+    std::vector < std::vector <std::vector < cv::Point_<float>>>> matchedPoints(numOfImgs - 1, std::vector <std::vector < cv::Point_<float>>>(2));
+    for (int i = 0; i < numOfImgs - 1; i++)
     {
-        projMatr.push_back(K * RT[i]);
+        Thr.push_back(std::thread(reconstructPoints, std::ref(keypoints[i]), std::ref(descriptors[i]), std::ref(keypoints[i + 1]), std::ref(descriptors[i + 1]), std::ref(K), std::ref(RT[i]), std::ref(RT[i + 1]), imgRows));
     }
+    for (int i = 0; i < Thr.size(); i++)
+    {
+        Thr[i].join();
+    }
+    Thr.clear();
 
-    std::vector<cv::Mat> F;
-    crFundamental(RT, K, F);
-
-    std::vector <std::vector < cv::Point_<float>>> matchedPoints(numOfImgs-1);
-
-    match(ROIpoints, ROIdes, matchedPoints);
-
-    cv::Mat points3d;
-
-    determine3d(matchedPoints, F, projMatr, points3d);
+    ////////need to take all the points from reconstructPoints in the way that it doesn't produce multiple times the same points
 
     return 0;
 }
