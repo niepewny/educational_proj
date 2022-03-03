@@ -11,37 +11,40 @@
 #include <opencv2/cudafilters.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/core/cuda.hpp>
-#include <opencv2/xfeatures2d.hpp>
+//#include <opencv2/xfeatures2d.hpp>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/visualization/cloud_viewer.h>
 
-template <typename T>
-cv::Mat skew(cv::Mat V)
-{
-    cv::Mat Vx = (cv::Mat_<T>(3, 3) <<
-        0, -V.at<T>(2), V.at<T>(1),
-        V.at<T>(2), 0, -V.at<T>(0),
-        -V.at<T>(1), V.at<T>(0), 0);
-    return Vx;
-}
+//template <typename T>
+//cv::Mat skew(cv::Mat V)
+//{
+//    cv::Mat Vx = (cv::Mat_<T>(3, 3) <<
+//        0, -V.at<T>(2), V.at<T>(1),
+//        V.at<T>(2), 0, -V.at<T>(0),
+//        -V.at<T>(1), V.at<T>(0), 0);
+//    return Vx;
+//}
 
-void crFundamental(cv::Mat RTl, cv::Mat RTr, cv::Mat Korg, cv::Mat &F)
-{
-    cv::Mat relativeRT, R, T, Tx, K;
-    cv::Mat hRow = (cv::Mat_<float>(1, 4) << 0, 0, 0, 1);
-    cv::Mat hRTl, hRTr;
-    
-    vconcat(RTl, hRow, hRTl);
-    vconcat(RTr, hRow, hRTr);
-
-    K = Korg.clone();
-    K = K.inv();
-
-    relativeRT = hRTr * hRTl.inv();
-    R = relativeRT(cv::Rect(0, 0, 3, 3));
-    T = relativeRT.col(3);
-    Tx = skew<float>(T);
-    F.push_back(K.t() * Tx * R * K);
-
-}
+//void crFundamental(cv::Mat RTl, cv::Mat RTr, cv::Mat Korg, cv::Mat &F)
+//{
+//    cv::Mat relativeRT, R, T, Tx, K;
+//    cv::Mat hRow = (cv::Mat_<float>(1, 4) << 0, 0, 0, 1);
+//    cv::Mat hRTl, hRTr;
+//    
+//    vconcat(RTl, hRow, hRTl);
+//    vconcat(RTr, hRow, hRTr);
+//
+//    K = Korg.clone();
+//    K = K.inv();
+//
+//    relativeRT = hRTl.inv() * hRTr;
+//    R = relativeRT(cv::Rect(0, 0, 3, 3));
+//    T = relativeRT.col(3);
+//    Tx = skew<float>(T);
+//    F = K.t() * Tx * R * K;
+//
+//}
 
 void skipData(std::ifstream& file, int numOfData, bool line = 0)
 {
@@ -70,7 +73,7 @@ void mat2vec(cv::Mat& mat, std::vector<cv::Mat>& vec)
     }
 }
 
-void mat2vec(cv::Mat& mat, std::vector<float>& vec)
+void mat2vec(cv::Mat& mat, std::vector<double>& vec)
 {
     for (int i = 0; i < mat.rows; i++)
     {
@@ -78,14 +81,14 @@ void mat2vec(cv::Mat& mat, std::vector<float>& vec)
     }
 }
 
-void cameraIntristic(std::string path, cv::Mat &K, std::vector<float>& D, int& imgRows)
+void cameraIntristic(std::string path, cv::Mat &K, std::vector<double>& D, int& imgRows)
 {
     cv::FileStorage file;
     cv::Mat Dmat;
 
     file.open(path, cv::FileStorage::READ);
     file["Camera_Matrix"] >> K;
-    K.convertTo(K, CV_32F);
+    K.convertTo(K, CV_64F);
     file["Distortion_Coefficients"] >> Dmat;
     file["image_Height"] >> imgRows;
     file.release();
@@ -107,13 +110,14 @@ void cameraExtrinsics(std::string path, std::vector<cv::Mat> &RT)
 
     for (int i = 0; i < RT.size(); i++)
     {
-        RT[i] = cv::Mat::zeros(3, 4, CV_32F);
+        RT[i] = cv::Mat::zeros(3, 4, CV_64F);
 
         skipData(file, 1);
 
         for (int j = 0; j < 3; j++)
         {
-            file >> RT[i].at<float>(j, 3);
+            file >> RT[i].at<double>(j, 3);
+            RT[i].at<double>(j, 3) = -RT[i].at<double>(j, 3);;
         }
         skipData(file, 3);
 
@@ -121,7 +125,7 @@ void cameraExtrinsics(std::string path, std::vector<cv::Mat> &RT)
         {
             for (int k = 0; k < 3; k++)
             {
-                file >> RT[i].at<float>(j, k);
+                file >> RT[i].at<double>(j, k);
             }
         }
     }
@@ -129,7 +133,7 @@ void cameraExtrinsics(std::string path, std::vector<cv::Mat> &RT)
     file.close();
 }
 
-void preprocess(cv::Mat& img, cv::Mat &K, std::vector<float> &D) 
+void preprocess(cv::Mat& img, cv::Mat &K, std::vector<double> &D) 
 {
     cv::undistort(img.clone(), img, K, D);
 
@@ -184,7 +188,7 @@ void match(std::vector<std::vector<cv::KeyPoint>> &ROIpointsL, std::vector<cv::M
 
             for (int matchId = 0; matchId < matches.size(); matchId++)
             {
-                if ((matches[matchId][0].distance < matches[matchId][1].distance * 0.8 && matches[matchId][0].distance < 4))
+                if ((matches[matchId][0].distance < matches[matchId][1].distance * 0.5 && matches[matchId][0].distance < 1))
                 {
                     //in case point needed further filtering
                     //matches[j][0].imgIdx = i;
@@ -197,9 +201,9 @@ void match(std::vector<std::vector<cv::KeyPoint>> &ROIpointsL, std::vector<cv::M
     }
 }
 
-void determine3d(std::vector <std::vector < cv::Point_<float>>> matchedPoints, std::vector<cv::Mat>projMatr, cv::Mat points3d)
+void determine3d(std::vector <std::vector < cv::Point_<float>>> matchedPoints, std::vector<cv::Mat>projMatr, cv::Mat &points3d)
 {
-    cv::Mat hPoints(4, matchedPoints[0].size(), CV_32FC2);
+    cv::Mat hPoints(4, matchedPoints[0].size(), CV_64FC2);
 
     cv::triangulatePoints(projMatr[0], projMatr[1], matchedPoints[0], matchedPoints[1], hPoints);
 
@@ -213,13 +217,11 @@ void determine3d(std::vector <std::vector < cv::Point_<float>>> matchedPoints, s
 
 void findPoints
 (
-    std::string path,
-    cv::Mat K, std::vector<float>& D,
-    int maxYdif, std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors
+    std::string path, cv::Mat K, std::vector<double>& D, std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors
 )
 {
     cv::Ptr<cv::ORB> ORB = cv::ORB::create(1000000, 1.1f, 50, 5, //poszukaæ, czy lepiej 1 wspólny, czy 1/thread
-        0, 2, cv::ORB::HARRIS_SCORE, 5, 15);
+        0, 2, cv::ORB::HARRIS_SCORE, 5, 30);
     cv::Mat img;
 
     img = cv::imread(path);
@@ -242,13 +244,14 @@ void findPoints
 
 }
 
-void reconstructPoints(std::vector<cv::KeyPoint> &keypointsL, cv::Mat &descriptorsL, std::vector<cv::KeyPoint> & keypointsR, cv::Mat & descriptorsR, cv::Mat K, cv::Mat RTl, cv::Mat RTr, int imgRows)
+void reconstructPoints(std::vector<cv::KeyPoint>& keypointsL, cv::Mat descriptorsL, std::vector<cv::KeyPoint>& keypointsR, cv::Mat& descriptorsR,
+    cv::Mat K, cv::Mat RTl, cv::Mat RTr, int imgRows, int maxYdif, std::vector<double>& D, cv::Mat &points3d)
 {
     std::vector < std::vector < cv::Point_<float>>> matchedPoints(2);
-    cv::Mat F, points3d;
-    std::vector<cv::Mat> projMatr{ K * RTl, K * RTr };
+    cv::Mat F;
+    std::vector<cv::Mat> projMatr{ K * RTl, K * RTr }; //K*
 
-    int maxYdif = 60;//calculate or take from the user in the future
+    //int maxYdif calculate in the future
     int ROIrows = 2 * maxYdif;
     //there exist 2 extra ROIs, so that exery point can be stored in two ROIs
     int numOfROIs = imgRows / maxYdif + 1;
@@ -261,8 +264,10 @@ void reconstructPoints(std::vector<cv::KeyPoint> &keypointsL, cv::Mat &descripto
     cerateROIs(keypointsR, descriptorsR, maxYdif, ROIpointsR, ROIdesR);
 
     match(ROIpointsL, ROIdesL, ROIpointsR, ROIdesR, matchedPoints);
-    crFundamental(RTl, RTr, K, F);
-    cv::correctMatches(F, matchedPoints[0], matchedPoints[1], matchedPoints[0], matchedPoints[1]);
+    //crFundamental(RTl, RTr, K, F);
+    //cv::correctMatches(F, matchedPoints[0], matchedPoints[1], matchedPoints[0], matchedPoints[1]);
+    //cv::undistortPoints(matchedPoints[0], matchedPoints[0], K, D);
+    //cv::undistortPoints(matchedPoints[1], matchedPoints[1], K, D);
     determine3d(matchedPoints, projMatr, points3d);
 }
 
@@ -271,7 +276,7 @@ int main()
     std::string directory = "C:/Users/Wojtas/Downloads/data-20211203T205153Z-001/data";
 
     cv::Mat K;
-    std::vector<float> D;
+    std::vector<double> D;
     int imgRows;
     cameraIntristic(directory + "/camera_calibration.xml", K, D, imgRows);
     std::vector<std::string> fn;
@@ -281,25 +286,27 @@ int main()
     std::vector<cv::Mat> RT(numOfImgs);
     cameraExtrinsics(directory + "/exterior_orientation.txt", RT);
 
-    std::vector<std::vector<cv::KeyPoint>> keypoints;
-    std::vector <cv::Mat> descriptors;
+    std::vector<std::vector<cv::KeyPoint>> keypoints(numOfImgs);
+    std::vector <cv::Mat> descriptors(numOfImgs);
+    int maxYdif = 60;
 
     std::vector<std::thread> Thr;
     for (int i = 0; i < numOfImgs; i++)
     {
-        Thr.push_back(std::thread(findPoints, fn[i], std::ref(K), std::ref(D),
-            std::ref(keypoints[i]), std::ref(descriptors[i])));
+        Thr.push_back(std::thread(findPoints, fn[i], std::ref(K), std::ref(D), std::ref(keypoints[i]), std::ref(descriptors[i])));
     }
     for (int i = 0; i < Thr.size(); i++)
     {
         Thr[i].join();
     }
     Thr.clear();
+
+    std::vector<cv::Mat> points3d(numOfImgs - 1);
 
     std::vector < std::vector <std::vector < cv::Point_<float>>>> matchedPoints(numOfImgs - 1, std::vector <std::vector < cv::Point_<float>>>(2));
     for (int i = 0; i < numOfImgs - 1; i++)
     {
-        Thr.push_back(std::thread(reconstructPoints, std::ref(keypoints[i]), std::ref(descriptors[i]), std::ref(keypoints[i + 1]), std::ref(descriptors[i + 1]), std::ref(K), std::ref(RT[i]), std::ref(RT[i + 1]), imgRows));
+        Thr.push_back(std::thread(reconstructPoints, std::ref(keypoints[i]), std::ref(descriptors[i]), std::ref(keypoints[i + 1]), std::ref(descriptors[i + 1]), std::ref(K), std::ref(RT[i]), std::ref(RT[i + 1]), imgRows, maxYdif, std::ref(D), std::ref(points3d[i])));
     }
     for (int i = 0; i < Thr.size(); i++)
     {
@@ -307,7 +314,23 @@ int main()
     }
     Thr.clear();
 
-    ////////need to take all the points from reconstructPoints in the way that it doesn't produce multiple times the same points
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    cv::Vec3f data;
+    for(int i = 0; i<points3d.size(); i++)
+        for (int j = 0; j < points3d[i].rows; j++)
+        {
+            pcl::PointXYZ point;
+            data = points3d[i].at<cv::Vec3f>(j, 0);
+            point.x = data[0];
+            point.y = data[1];
+            point.z = data[2];
+            cloud->points.push_back(point);
+        }
+
+    pcl::visualization::CloudViewer viewer("Simple Cloud Viewer");
+    viewer.showCloud(cloud);
+    while (!viewer.wasStopped())
+    {}
 
     return 0;
 }

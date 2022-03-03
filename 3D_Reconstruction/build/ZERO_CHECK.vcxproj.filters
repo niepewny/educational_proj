@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Wojtas\source\repos\git_repo\3D_Reconstruction\build\CMakeFiles\1809fc2abb3284525dcf719aca098b5b\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{3306AC4B-7A16-30CF-86AF-8BC7B198AF0B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
