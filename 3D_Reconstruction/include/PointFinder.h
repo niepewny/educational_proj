@@ -9,16 +9,6 @@
 
 class PointFinder
 {
-private:
-    cv::Mat imgOrg;
-    static cv::Ptr<cv::ORB> ORB;
-    static cv::Mat K;
-    static std::vector<double> D;
-    cv::Mat img;
-    static int gaussianSize;
-    static double gaussianSigma;
-    static bool init[2];
-    void preprocess();
 
 public:
     static bool applyNext;
@@ -47,4 +37,15 @@ public:
 
     static void setORBfirstLevel(int firstLevel);
 
+private:
+    cv::Mat imgOrg;
+    cv::Mat img;
+    static cv::Ptr<cv::ORB> ORB;
+    static cv::Mat K;
+    static std::vector<double> D;
+    static int gaussianSize;
+    static double gaussianSigma;
+    static bool init[2];
+
+    void preprocess();
 };

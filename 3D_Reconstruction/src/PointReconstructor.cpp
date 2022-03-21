@@ -11,6 +11,86 @@
     bool PointReconstructor::init[2] = { 1, 1 };
     bool PointReconstructor::applyNext = 1;
 
+
+    PointReconstructor::PointReconstructor(cv::Mat k, cv::Mat rtl, cv::Mat rtr, int imgcols, int imgrows)
+    {
+        K = k;
+        RTl = rtl;
+        RTr = rtr;
+        imgCols = imgcols;
+        imgRows = imgrows;
+        projMatr = { K * RTl, K * RTr };
+        Pr2PlMat();
+        crFundamental();
+
+    }
+
+    void PointReconstructor::apply(std::vector<cv::KeyPoint>& keypointsL, cv::Mat descriptorsL,
+        std::vector<cv::KeyPoint>& keypointsR, cv::Mat& descriptorsR, cv::Mat& points3d, bool initAll)
+    {
+        if (init[0] || initAll)
+        {
+            ROIpointsR = std::vector<std::vector<std::vector<cv::KeyPoint>>>(imgCols / ROIsize, std::vector<std::vector<cv::KeyPoint>>(imgRows / ROIsize));
+            ROIdesR = std::vector<std::vector<cv::Mat>>(imgCols / ROIsize, std::vector<cv::Mat>(imgRows / ROIsize));
+
+            createROIs(keypointsR, descriptorsR);
+
+            init[1] = 1;
+        }
+        if (init[1])
+        {
+
+            std::vector < std::vector < cv::Point_<double>>> matchedPoints(2);
+
+            match(keypointsL, descriptorsL, matchedPoints);
+
+            cv::correctMatches(F, matchedPoints[0], matchedPoints[1], matchedPoints[0], matchedPoints[1]);
+
+            determine3d(matchedPoints, projMatr, points3d);
+
+            init[0] = 0;
+            init[1] = 0;
+            applyNext = 1;
+        }
+
+    }
+
+    void PointReconstructor::setZmin(float zmin)
+    {
+        if (Zmin != zmin)
+        {
+            Zmin = zmin;
+            init[0] = 1;
+        }
+    }
+
+    void PointReconstructor::setZmax(float zmax)
+    {
+        if (Zmax != zmax)
+        {
+            Zmax = zmax;
+            init[0] = 1;
+        }
+    }
+
+    void PointReconstructor::setROIsize(int roisize)
+    {
+        if (ROIsize != roisize)
+        {
+            ROIsize = roisize;
+            init[0] = 1;
+        }
+    }
+
+    void PointReconstructor::setMatcherMaxError(int maxerror)
+    {
+        if (maxError != maxerror)
+        {
+            maxError = maxerror;
+            init[1] = 1;
+        }
+    }
+
     void PointReconstructor::mat2vec(cv::Mat& mat, std::vector<cv::Mat>& vec)
     {
         for (int i = 0; i < mat.cols; i++)
@@ -139,83 +219,4 @@
             V.at<T>(2), 0, -V.at<T>(0),
             -V.at<T>(1), V.at<T>(0), 0);
         return Vx;
-    }
-
-    PointReconstructor::PointReconstructor(cv::Mat k, cv::Mat rtl, cv::Mat rtr, int imgcols, int imgrows)
-    {
-        K = k;
-        RTl = rtl;
-        RTr = rtr;
-        imgCols = imgcols;
-        imgRows = imgrows;
-        projMatr = { K * RTl, K * RTr };
-        Pr2PlMat();
-        crFundamental();
-
-    }
-
-    void PointReconstructor::apply(std::vector<cv::KeyPoint>& keypointsL, cv::Mat descriptorsL,
-        std::vector<cv::KeyPoint>& keypointsR, cv::Mat& descriptorsR, cv::Mat& points3d, bool initAll)
-    {
-        if (init[0] || initAll)
-        {
-            ROIpointsR = std::vector<std::vector<std::vector<cv::KeyPoint>>>(imgCols / ROIsize, std::vector<std::vector<cv::KeyPoint>>(imgRows / ROIsize));
-            ROIdesR = std::vector<std::vector<cv::Mat>>(imgCols / ROIsize, std::vector<cv::Mat>(imgRows / ROIsize));
-            
-            createROIs(keypointsR, descriptorsR);
-
-            init[1] = 1;
-        }
-        if (init[1])
-        {
-
-            std::vector < std::vector < cv::Point_<double>>> matchedPoints(2);
-
-            match(keypointsL, descriptorsL, matchedPoints);
-
-            cv::correctMatches(F, matchedPoints[0], matchedPoints[1], matchedPoints[0], matchedPoints[1]);
-            
-            determine3d(matchedPoints, projMatr, points3d);
-
-            init[0] = 0;
-            init[1] = 0;
-            applyNext = 1;
-        }
-
-    }
-
-    void PointReconstructor::setZmin(float zmin)
-    {
-        if (Zmin != zmin)
-        {
-            Zmin = zmin;
-            init[0] = 1;
-        }
-    }
-
-    void PointReconstructor::setZmax(float zmax)
-    {
-        if (Zmax != zmax)
-        {
-            Zmax = zmax;
-            init[0] = 1;
-        }
-    }
-
-    void PointReconstructor::setROIsize(int roisize)
-    {
-        if (ROIsize != roisize)
-        {
-            ROIsize = roisize;
-            init[0] = 1;
-        }
-    }
-
-    void PointReconstructor::setMatcherMaxError(int maxerror)
-    {
-        if (maxError != maxerror)
-        {
-            maxError = maxerror;
-            init[1] = 1;
-        }
     }

@@ -11,6 +11,18 @@
 
 class CloudMaker
 {
+public:
+
+    std::vector<PointFinder> pointFinder;
+    std::vector<PointReconstructor> pointReconstructor;
+    pcl::RadiusOutlierRemoval<pcl::PointXYZ> filter;
+
+    //@directory is the path to a directory containing all the required data
+    CloudMaker(std::string directory);
+    ~CloudMaker();
+
+    void apply();
+
 private:
     int numOfImgs;
 
@@ -42,16 +54,4 @@ private:
     //exports points from vector of OpenCV matrixes to a pointcloud
     void exportPoints(std::vector<cv::Mat> points3d, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 
-
-public:
-
-    std::vector<PointFinder> pointFinder;
-    std::vector<PointReconstructor> pointReconstructor;
-    pcl::RadiusOutlierRemoval<pcl::PointXYZ> filter;
-
-    //@directory is the path to a directory containing all the required data
-    CloudMaker(std::string directory);
-    ~CloudMaker();
-
-    void apply();
 };

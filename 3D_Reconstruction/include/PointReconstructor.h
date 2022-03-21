@@ -7,6 +7,24 @@
 
 class PointReconstructor
 {
+public:
+
+    static bool applyNext;
+
+    PointReconstructor(cv::Mat K, cv::Mat RTl, cv::Mat RTr, int imgCols, int imgRows);
+
+    void apply(std::vector<cv::KeyPoint>& keypointsl, cv::Mat descriptorsl, std::vector<cv::KeyPoint>& keypointsr, cv::Mat& descriptorsr, cv::Mat& points3d, bool initAll);
+
+    //setters:
+
+    static void PointReconstructor::setZmin(float zmin);
+
+    static void PointReconstructor::setZmax(float zmax);
+
+    static void PointReconstructor::setROIsize(int roisize);
+
+    static void PointReconstructor::setMatcherMaxError(int maxerror);
+
 private:
     static float Zmin, Zmax;
     static int ROIsize, maxError, imgCols, imgRows;
@@ -42,22 +60,4 @@ private:
     //generates skew-symmetric matrix
     template <typename T>
     cv::Mat skew(cv::Mat V);
-
-public:
-
-    static bool applyNext;
-
-    PointReconstructor(cv::Mat K, cv::Mat RTl, cv::Mat RTr, int imgCols, int imgRows);
-    
-    void apply(std::vector<cv::KeyPoint>& keypointsl, cv::Mat descriptorsl, std::vector<cv::KeyPoint>& keypointsr, cv::Mat& descriptorsr, cv::Mat& points3d, bool initAll);
-
-    //setters:
-
-    static void PointReconstructor::setZmin(float zmin);
-
-    static void PointReconstructor::setZmax(float zmax);
-
-    static void PointReconstructor::setROIsize(int roisize);
-
-    static void PointReconstructor::setMatcherMaxError(int maxerror);
 };

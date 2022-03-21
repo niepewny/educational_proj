@@ -8,24 +8,7 @@ double PointFinder::gaussianSigma = 0.1;
 bool PointFinder::init[2] = {1, 1};
 bool PointFinder::applyNext;
 
-void PointFinder::preprocess()
-{
-    cv::undistort(imgOrg.clone(), img, K, D);
-
-    cv::cuda::GpuMat GPUimg(img);
-    cv::cuda::cvtColor(GPUimg, GPUimg, cv::COLOR_RGB2GRAY);
-
-    cv::Ptr<cv::cuda::CLAHE> clahe = cv::cuda::createCLAHE();
-    clahe->setClipLimit(100);
-    clahe->apply(GPUimg, GPUimg);
-
-    cv::Ptr<cv::cuda::Filter> gaussian = cv::cuda::createGaussianFilter(GPUimg.type(), GPUimg.type(), cv::Size(gaussianSize, gaussianSize), gaussianSigma);
-    gaussian->apply(GPUimg, GPUimg);
-
-    GPUimg.download(img);
-}
-
-PointFinder::PointFinder(){}
+PointFinder::PointFinder() {}
 
 PointFinder::PointFinder(std::string path, cv::Mat& k, std::vector<double>& d)
 {
@@ -43,7 +26,6 @@ PointFinder::PointFinder(std::string path, cv::Mat& k, std::vector<double>& d)
         exit(0);
     }
 }
-
 
 void PointFinder::apply(std::vector<cv::KeyPoint>& keyPoints, cv::Mat& descriptors)
 {
@@ -132,4 +114,21 @@ void PointFinder::setORBfirstLevel(int firstLevel)
         ORB->setFirstLevel(firstLevel);
         init[1] = 1;
     }
+}
+
+void PointFinder::preprocess()
+{
+    cv::undistort(imgOrg.clone(), img, K, D);
+
+    cv::cuda::GpuMat GPUimg(img);
+    cv::cuda::cvtColor(GPUimg, GPUimg, cv::COLOR_RGB2GRAY);
+
+    cv::Ptr<cv::cuda::CLAHE> clahe = cv::cuda::createCLAHE();
+    clahe->setClipLimit(100);
+    clahe->apply(GPUimg, GPUimg);
+
+    cv::Ptr<cv::cuda::Filter> gaussian = cv::cuda::createGaussianFilter(GPUimg.type(), GPUimg.type(), cv::Size(gaussianSize, gaussianSize), gaussianSigma);
+    gaussian->apply(GPUimg, GPUimg);
+
+    GPUimg.download(img);
 }
