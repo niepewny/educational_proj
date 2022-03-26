@@ -48,9 +48,6 @@ private:
     //receives data from .txt file and creates [R|t] matrixes
     void cameraExtrinsics(std::string path, std::vector<cv::Mat>& RT);
 
-    //creates a PointFinder object
-    void makeFinder(PointFinder& pointFinder, std::string path, cv::Mat K, std::vector<double> D);
-
     //exports points from vector of OpenCV matrixes to a pointcloud
     void exportPoints(std::vector<cv::Mat> points3d, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 

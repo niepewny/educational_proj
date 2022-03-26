@@ -13,6 +13,7 @@ find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Gui REQUIRED)
 find_package(PCL 1.3 REQUIRED COMPONENTS common io)
+find_package(OpenCV REQUIRED)
 
 
 #=================== INCLUSION OF Project Files ====================#
@@ -24,7 +25,7 @@ include_directories(${FORMS_DIR})
 include_directories(${INCLUDE_DIR})
 include_directories(${SOURCE_DIR})
 include_directories(${PCL_INCLUDE_DIRS})
-include_directories("$ENV{OPENCV}/include")
+include_directories($ENV{OpenCV_INCLUDE_DIRS})
 
 file(GLOB_RECURSE SOURCES
     "${FORMS_DIR}/*.ui"
@@ -49,10 +50,18 @@ target_link_libraries(3D_Reconstruction Qt5::Widgets)
 target_link_libraries(3D_Reconstruction Qt5::Gui)
 target_link_libraries(3D_Reconstruction Qt5::Core)
 target_link_libraries(3D_Reconstruction ${PCL_LIBRARIES})
-target_link_libraries(3D_Reconstruction "$ENV{OPENCV}/lib/Debug/opencv_world455d.lib")
 target_link_libraries(3D_Reconstruction "$ENV{PCL_ROOT}/lib/pcl_visualizationd.lib")
 target_link_libraries(3D_Reconstruction "$ENV{PCL_ROOT}/lib/pcl_filtersd.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_highgui455d.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_calib3d455d.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_cudaimgproc455d.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_cudafilters455d.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_core455d.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_features2d455d.lib")
+target_link_libraries(3D_Reconstruction "$ENV{OPENCV_DIR}/lib/Debug/opencv_imgcodecs455d.lib")
 
+# Link directory
 link_directories(${PCL_LIBRARY_DIRS})
 
+# Add definitions
 add_definitions(${PCL_DEFINITIONS})

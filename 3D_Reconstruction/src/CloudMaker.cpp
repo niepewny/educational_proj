@@ -7,7 +7,6 @@
     void deleteCl()
     {
         cl.~shared_ptr();
-        //delete cl;
     }
 
     CloudMaker::CloudMaker(std::string directory)
@@ -30,13 +29,13 @@
         std::vector<cv::Mat> RT(numOfImgs);
         cameraExtrinsics(directory + "/exterior_orientation.txt", RT);
 
-        //creating PointFinders (chwilowo poza threadem)
+        //creating PointFinders
         std::vector<std::thread> Thr;
         pointFinder = std::vector<PointFinder>(numOfImgs);
 
         for (int i = 0; i < numOfImgs; i++)
         {
-            pointFinder[i] = PointFinder::PointFinder(fn[i], K, D);
+            Thr.emplace_back([&, i]() { pointFinder[i] = PointFinder::PointFinder(fn[i], K, D); });
         }
 
         for (int i = 0; i < Thr.size(); i++)
@@ -66,7 +65,7 @@
 
         for (int i = 0; i < pointFinder.size(); i++)
         {
-            Thr.push_back(std::thread(&PointFinder::apply, &pointFinder[i], std::ref(keypoints[i]), std::ref(descriptors[i])));
+            Thr.emplace_back(&PointFinder::apply, &pointFinder[i], std::ref(keypoints[i]), std::ref(descriptors[i]));
         }
         for (int i = 0; i < Thr.size(); i++)
         {
@@ -76,8 +75,8 @@
 
         for (int i = 0; i < pointReconstructor.size(); i++)
         {
-            Thr.push_back(std::thread(&PointReconstructor::apply, &pointReconstructor[i], std::ref(keypoints[i]),
-                std::ref(descriptors[i]), std::ref(keypoints[i + 1]), std::ref(descriptors[i + 1]), std::ref(points3d[i]), PointFinder::applyNext));
+            Thr.emplace_back(&PointReconstructor::apply, &pointReconstructor[i], std::ref(keypoints[i]),
+                std::ref(descriptors[i]), std::ref(keypoints[i + 1]), std::ref(descriptors[i + 1]), std::ref(points3d[i]), PointFinder::applyNext);
         }
         for (int i = 0; i < Thr.size(); i++)
         {
@@ -187,11 +186,6 @@
         }
 
         file.close();
-    }
-
-    void CloudMaker::makeFinder(PointFinder& pointFinder, std::string path, cv::Mat K, std::vector<double> D)
-    {
-        pointFinder = PointFinder::PointFinder(path, K, D);
     }
 
     void CloudMaker::exportPoints(std::vector<cv::Mat> points3d, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)

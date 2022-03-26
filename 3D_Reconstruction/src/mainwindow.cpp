@@ -34,8 +34,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->filtRadLineEdit, &QLineEdit::textChanged, this, &MainWindow::checkInput);
     connect(ui->filtMinNeighLineEdit, &QLineEdit::textChanged, this, &MainWindow::checkInput);
 
-    //dir = "C:\\Users\\Wojtas\\Downloads\\data-20211203T205153Z-001\\data";
-
     ui->pointFindGroupBox->setEnabled(0);
     ui->pointRecGroupBox->setEnabled(0);
     ui->filtGroupBox->setEnabled(0);
@@ -83,7 +81,7 @@ void MainWindow::checkInput()
 
 void MainWindow::runButtonClicked()
 {
-    if (!dir.isEmpty() && !(reconstManager == nullptr)) //////////////////////
+    if (!dir.isEmpty())
     {
         if (reconstManager->cloudMaker == nullptr)
         {
