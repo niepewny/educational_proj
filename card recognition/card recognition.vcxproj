@@ -78,8 +78,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\OpenCV\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\OpenCV\lib\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>opencv\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
