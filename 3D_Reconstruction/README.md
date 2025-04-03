@@ -24,11 +24,11 @@ As an extra, I've created a GUI in Qt allowing the user to experiment with diffe
 1. name: PCL_ROOT
 - [path_to_PCL]
 2. name: OPENNI2_INCLUDE64
-- [path_to_PCL]\Include\
+- [path_to_OpenNI]\Include\
 3. name: OPENNI2_LIB64
-- [path_to_PCL]\Lib\
+- [path_to_OpenNI]\Lib\
 4. name: OPENNI2_REDIST64
-- [path_to_PCL]\Redist\
+- [path_to_OpenNI]\Redist\
 5. name: QTDIR
 - [path_to_Qt]
 6. name: OPENCV_DIR
