@@ -36,8 +36,8 @@ As an extra, I've created a GUI in Qt allowing the user to experiment with diffe
 7. name: OpenCV_INCLUDE_DIRS
 - path to OpenCV's include folder
 8. name: Path
-- [path_to_PCL]
-- [path_to_PCL]\Tools
+- [path_to_OpenNI]
+- [path_to_OpenNI]\Tools
 - %PCL_ROOT%\bin
 - %PCL_ROOT%\3rdParty
 - %PCL_ROOT%\3rdParty\VTK\bin
