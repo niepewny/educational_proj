@@ -19,6 +19,7 @@ As an extra, I've created a GUI in Qt allowing the user to experiment with diffe
 - prebuilded [OpenCV](https://github.com/opencv/opencv) with [contrib](https://github.com/opencv/opencv_contrib) (important modules: highgui, calib3d, cudaimgproc, cudafilters, imgcodecs, features2d, core - all in debug mode)
  - [PCL](https://github.com/PointCloudLibrary/pcl/releases) with OpenNI2 (required All-in-One Installer)
  - [Qt](https://www.qt.io/download-thank-you?hsLang=en) (tested on 5.15.2 version)
+ - CUDA
 
 # Enviromental variables to set:
 1. name: PCL_ROOT
